@@ -439,12 +439,12 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   <div class="hero-section">
     <div class="hero-grid">
       <div class="hero-main">
-        <div class="hero-badge2">⚡ Chandigarh University</div>
+        <div class="hero-badge2">⚡ Chandigarh University · Next Day Milk</div>
         <h2>Super Fast<br/>Campus Delivery</h2>
-        <p>Milk & prints at your hostel door in minutes</p>
+        <p>Order today · Everything delivered tomorrow</p>
       </div>
       <div class="hero-stat-cards">
-        <div class="stat-card"><div class="stat-num">5m</div><div class="stat-lbl">Avg Delivery</div></div>
+        <div class="stat-card"><div class="stat-num">Next Day</div><div class="stat-lbl">Milk Delivery</div></div>
         <div class="stat-card"><div class="stat-num">1.5k</div><div class="stat-lbl">Orders Done</div></div>
         <div class="stat-card"><div class="stat-num">4.9★</div><div class="stat-lbl">Rating</div></div>
       </div>
@@ -457,8 +457,8 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       <div class="vc-body">
         <div class="vc-top"><div class="vc-name">Milk Shop</div><div class="vc-rating">⭐ 4.9</div></div>
         <div class="vc-sub">Full Cream Milk</div>
-        <div class="vc-offer">🎉 Fresh Daily · 500ml Packs</div>
-        <div class="vc-meta"><span class="vc-m">⏱️ 5 min</span><span class="vc-m">📍 0.1 km</span><span class="vc-m">📦 500+ orders</span></div>
+        <div class="vc-offer">🎉 Order Today · Delivered Tomorrow</div>
+        <div class="vc-meta"><span class="vc-m">⏱️ Next Day</span><span class="vc-m">📍 0.1 km</span><span class="vc-m">📦 500+ orders</span></div>
       </div>
     </div>
     <div class="vc" onclick="openSvc(1)">
@@ -466,8 +466,8 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       <div class="vc-body">
         <div class="vc-top"><div class="vc-name">Print Shop</div><div class="vc-rating">⭐ 4.8</div></div>
         <div class="vc-sub">B&W • Colour</div>
-        <div class="vc-offer">🎉 B&amp;W ₹4 · Colour ₹8 per page</div>
-        <div class="vc-meta"><span class="vc-m">⏱️ 10 min</span><span class="vc-m">📍 0.2 km</span><span class="vc-m">📦 1k+ orders</span></div>
+        <div class="vc-offer">🎉 Order Today · Delivered Tomorrow</div>
+        <div class="vc-meta"><span class="vc-m">⏱️ Next Day</span><span class="vc-m">📍 0.2 km</span><span class="vc-m">📦 1k+ orders</span></div>
       </div>
     </div>
   </div>
@@ -490,7 +490,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
     <div class="svc-emoji-wrap" id="svcEW"><span id="svcE">🥛</span></div>
     <div class="svc-stats-row">
       <div class="svc-stat"><div class="svc-sv" id="svcR">4.9</div><div class="svc-sl">Rating</div></div>
-      <div class="svc-stat"><div class="svc-sv" id="svcD">5 min</div><div class="svc-sl">Delivery</div></div>
+      <div class="svc-stat"><div class="svc-sv" id="svcD">Next Day</div><div class="svc-sl">Delivery</div></div>
       <div class="svc-stat"><div class="svc-sv" id="svcO">500+</div><div class="svc-sl">Orders</div></div>
     </div>
   </div>
@@ -586,14 +586,14 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       <div class="del-title">Order Confirmed!</div>
       <div class="del-sub">Your order is on its way 🚀</div>
       <div class="del-timer">
-        <div class="timer-label">⏱️ Estimated Delivery In</div>
-        <div class="timer-display" id="timerDisplay">10:00</div>
-        <div class="timer-sub">Minutes : Seconds</div>
+        <div class="timer-label">📅 Estimated Delivery Date</div>
+        <div class="timer-display" id="timerDisplay" style="font-size:28px;letter-spacing:-1px"></div>
+        <div class="timer-sub" id="timerSub">Sit back and relax!</div>
       </div>
       <div class="del-steps">
         <div class="del-step"><div class="step-dot done">✅</div><div class="step-text"><div class="sh">Payment Confirmed</div><div class="sl">Razorpay payment received</div></div></div>
         <div class="del-step"><div class="step-dot active">📦</div><div class="step-text"><div class="sh">Order Preparing</div><div class="sl">We're packing your order</div></div></div>
-        <div class="del-step"><div class="step-dot pending">🚴</div><div class="step-text"><div class="sh">Out for Delivery</div><div class="sl">Heading to your hostel</div></div></div>
+        <div class="del-step"><div class="step-dot pending">🚴</div><div class="step-text"><div class="sh">Out for Delivery</div><div class="sl">Arriving at your hostel tomorrow</div></div></div>
         <div class="del-step"><div class="step-dot pending">🏠</div><div class="step-text"><div class="sh">Delivered</div><div class="sl">Enjoy your order!</div></div></div>
       </div>
       <div class="del-info">
@@ -615,12 +615,12 @@ const CONFIG = {
 };
 
 const SERVICES = [
-  {id:1,name:'Milk Shop',emoji:'🥛',cls:'milk',rating:'4.9',time:'5 min',orders:'500+',isPrint:false,
-    items:[{id:101,name:'Full Cream Milk',price:39,emoji:'🥛',desc:'500ml – Fresh & chilled',bs:true}]},
-  {id:2,name:'Print Shop',emoji:'🖨️',cls:'print',rating:'4.8',time:'10 min',orders:'1k+',isPrint:true,
+  {id:1,name:'Milk Shop',emoji:'🥛',cls:'milk',rating:'4.9',time:'Next Day',orders:'500+',isPrint:false,
+    items:[{id:101,name:'Full Cream Milk',price:39,emoji:'🥛',desc:'500ml – Order today, delivered tomorrow',bs:true}]},
+  {id:2,name:'Print Shop',emoji:'🖨️',cls:'print',rating:'4.8',time:'Next Day',orders:'1k+',isPrint:true,
     items:[
-      {id:201,name:'B&W Print',price:4,emoji:'📄',desc:'Black & White – per page',bs:true},
-      {id:202,name:'Colour Print',price:8,emoji:'🎨',desc:'Full Colour – per page',bs:false}
+      {id:201,name:'B&W Print',price:4,emoji:'📄',desc:'Order today, delivered tomorrow',bs:true},
+      {id:202,name:'Colour Print',price:8,emoji:'🎨',desc:'Order today, delivered tomorrow',bs:false}
     ]}
 ];
 
@@ -811,7 +811,7 @@ async function placeOrder(){
     pts+=earned;
     cart=[];printFile=null;
     syncUI();
-    startTimer(SERVICES.find(s=>s.isPrint&&cart.some(c=>c.shop==='Print Shop'))?600:300);
+    startTimer();
     go('delivery');
   }catch(e){
     toast(e.message||'Payment failed','er');
@@ -845,28 +845,16 @@ async function sendToSheet(pid,fileUrl){
 }
 
 // ── DELIVERY TIMER ──
-function startTimer(seconds){
-  if(timerInterval)clearInterval(timerInterval);
-  let s=seconds;
+function startTimer(){
   const el=document.getElementById('timerDisplay');
-  const steps=document.querySelectorAll('.step-dot');
-  function tick(){
-    const m=Math.floor(s/60),sec=s%60;
-    el.textContent=String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
-    // update step states
-    const pct=1-(s/seconds);
-    if(pct>0.3&&steps[2]){steps[2].className='step-dot active';steps[2].textContent='🚴';}
-    if(pct>0.7&&steps[3]){steps[3].className='step-dot active';steps[3].textContent='🏠';}
-    if(s<=0){
-      clearInterval(timerInterval);
-      el.textContent='00:00';
-      steps[2].className='step-dot done';steps[2].textContent='✅';
-      steps[3].className='step-dot done';steps[3].textContent='✅';
-      toast('🎉 Order Delivered!');
-    }
-    s--;
-  }
-  tick();timerInterval=setInterval(tick,1000);
+  const sub=document.getElementById('timerSub');
+  el.style.fontSize='22px';
+  const tomorrow=new Date();
+  tomorrow.setDate(tomorrow.getDate()+1);
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  el.textContent='Tomorrow, '+days[tomorrow.getDay()]+' '+tomorrow.getDate()+' '+months[tomorrow.getMonth()];
+  sub.textContent='Your order will arrive by tomorrow morning 📦';
 }
 
 function newOrder(){if(timerInterval)clearInterval(timerInterval);go('home');}
