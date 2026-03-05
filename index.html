@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>CrewCart – Campus Delivery</title>
 <meta name="description" content="CrewCart delivers fresh milk and prints to your hostel room at Chandigarh University. Order today, delivered tomorrow."/>
@@ -357,6 +358,13 @@ footer{background:var(--bg2);border-top:1px solid var(--line);padding:48px 0 28p
   .otabs{width:100%;}
   .otab{flex:1;text-align:center;padding:9px 8px;font-size:12px;}
 }
+
+#printPriceBox{display:none;flex-direction:column;gap:6px;background:linear-gradient(135deg,rgba(0,201,167,0.10),rgba(0,201,167,0.04));border:1px solid rgba(0,201,167,0.28);border-radius:14px;padding:16px 20px;margin-top:12px;}
+.ppb-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted2);}
+.ppb-total{display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;margin-top:4px;font-size:15px;font-weight:800;color:var(--teal);}
+.ppb-total span:last-child{font-size:20px;}
+.ppb-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(0,201,167,0.14);color:var(--teal);padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;margin-left:6px;}
+
 </style>
 </head>
 <body>
@@ -623,8 +631,16 @@ footer{background:var(--bg2);border-top:1px solid var(--line);padding:48px 0 28p
             </div>
             <div class="file-preview" id="filePreview">
               <div class="fp-ico" id="fpIco">📄</div>
-              <div class="fp-info"><div class="fp-name" id="fpName">—</div><div class="fp-size" id="fpSize">—</div></div>
+              <div class="fp-info">
+                <div class="fp-name" id="fpName">—</div>
+                <div class="fp-size" id="fpSize">—<span id="fpPagesBadge" class="ppb-badge" style="display:none;">⏳ Counting…</span></div>
+              </div>
               <button class="fp-remove" onclick="removeFile()" title="Remove file">✕</button>
+            </div>
+            <div id="printPriceBox">
+              <div class="ppb-row"><span id="ppbDesc">Pages detected</span><span id="ppbPages">—</span></div>
+              <div class="ppb-row"><span id="ppbRateLbl">Rate per page</span><span id="ppbRate">—</span></div>
+              <div class="ppb-total"><span>Total to Pay</span><span id="ppbTotal">₹0</span></div>
             </div>
             <div class="file-notice">📋 Your file will be collected by our team and printed as per your specifications. We do not store files beyond delivery.</div>
           </div>
@@ -892,29 +908,100 @@ document.getElementById('authOverlay').addEventListener('click',function(e){if(e
 document.getElementById('fs').addEventListener('change',function(){
   const isPrint=this.value.includes('Print');
   document.getElementById('fileUploadBox').style.display=isPrint?'block':'none';
-  if(!isPrint) removeFile();
+  if(!isPrint){ removeFile(); }
+  else if(uploadedFile){ updatePrintPriceBox(this.value); }
 });
-function handleFile(file){
+let printPageCount = 0;
+
+async function countPdfPages(file){
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = async function(e){
+      try {
+        if(typeof pdfjsLib === 'undefined'){
+          // pdf.js not loaded yet — wait briefly and retry once
+          await new Promise(r => setTimeout(r, 800));
+        }
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const typedArray = new Uint8Array(e.target.result);
+        const pdf = await pdfjsLib.getDocument({data: typedArray}).promise;
+        resolve(pdf.numPages);
+      } catch(err) {
+        console.warn('PDF page count failed:', err);
+        resolve(null);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function updatePrintPriceBox(svc){
+  const box   = document.getElementById('printPriceBox');
+  const badge = document.getElementById('fpPagesBadge');
+  if(!uploadedFile || !svc || !svc.includes('Print')){ box.style.display='none'; return; }
+  const rate  = svc.includes('B&W') ? 4 : 8;
+  const label = svc.includes('B&W') ? 'B&W Print' : 'Colour Print';
+  const ext   = uploadedFile.name.split('.').pop().toLowerCase();
+  const pages = ext === 'pdf' ? printPageCount : 1;
+  const total = pages * rate;
+  document.getElementById('ppbDesc').textContent  = ext==='pdf' ? 'PDF pages detected' : 'Image file (1 print)';
+  document.getElementById('ppbPages').textContent = pages + (ext==='pdf' ? ' page'+(pages!==1?'s':'') : '');
+  document.getElementById('ppbRateLbl').textContent = label + ' rate';
+  document.getElementById('ppbRate').textContent  = '₹'+rate+' per page';
+  document.getElementById('ppbTotal').textContent = '₹'+total;
+  box.style.display = 'flex';
+  if(badge) { badge.style.display='none'; }
+}
+
+async function handleFile(file){
   if(!file) return;
   const ext=file.name.split('.').pop().toLowerCase();
   if(!['pdf','jpg','jpeg','png','webp'].includes(ext)){toast('Only PDF, JPG, PNG files allowed');return;}
   if(file.size>20*1024*1024){toast('File too large — max 20MB');return;}
-  uploadedFile=file;
-  document.getElementById('fpIco').textContent=ext==='pdf'?'PDF':'IMG';
+  uploadedFile=file; printPageCount=0;
+  document.getElementById('fpIco').textContent=ext==='pdf'?'📄':'🖼️';
   document.getElementById('fpName').textContent=file.name;
-  document.getElementById('fpSize').textContent=file.size<1024*1024
+  const sizeTxt = file.size<1024*1024
     ?(file.size/1024).toFixed(1)+' KB'
     :(file.size/1024/1024).toFixed(2)+' MB';
+  document.getElementById('fpSize').textContent=sizeTxt;
   document.getElementById('filePreview').style.display='flex';
   document.getElementById('fileDrop').style.borderColor='var(--teal)';
   document.getElementById('fileDrop').style.background='rgba(0,201,167,0.06)';
-  toast('File attached: '+file.name);
+
+  // If PDF — count pages
+  if(ext === 'pdf'){
+    const badge = document.getElementById('fpPagesBadge');
+    badge.style.display='inline-flex'; badge.textContent='⏳ Counting pages…';
+    document.getElementById('printPriceBox').style.display='none';
+    const pages = await countPdfPages(file);
+    if(pages !== null){
+      printPageCount = pages;
+      badge.textContent = pages + ' page' + (pages!==1?'s':'');
+      toast('PDF detected: ' + pages + ' page'+(pages!==1?'s':''));
+    } else {
+      printPageCount = 1;
+      badge.textContent = 'Could not count pages';
+      toast('Could not count PDF pages — defaulting to 1');
+    }
+    updatePrintPriceBox(document.getElementById('fs').value);
+  } else {
+    // Image — 1 print
+    printPageCount = 1;
+    const badge = document.getElementById('fpPagesBadge');
+    badge.style.display='inline-flex'; badge.textContent='1 image';
+    updatePrintPriceBox(document.getElementById('fs').value);
+    toast('Image attached — 1 print');
+  }
 }
 function removeFile(){
-  uploadedFile=null;
+  uploadedFile=null; printPageCount=0;
   const fi=document.getElementById('fileInput'); if(fi)fi.value='';
   const fp=document.getElementById('filePreview'); if(fp)fp.style.display='none';
   const fd=document.getElementById('fileDrop'); if(fd){fd.style.borderColor='';fd.style.background='';}
+  const pb=document.getElementById('printPriceBox'); if(pb)pb.style.display='none';
+  const badge=document.getElementById('fpPagesBadge'); if(badge)badge.style.display='none';
 }
 function handleDrag(e,on){e.preventDefault();document.getElementById('fileDrop').classList.toggle('drag',on);}
 function handleDrop(e){e.preventDefault();document.getElementById('fileDrop').classList.remove('drag');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);}
@@ -996,15 +1083,18 @@ function setBtnLoading(on){
 }
 function calcAmt(s,q){
   if(s.includes('Milk'))return 39*q;
-  if(s.includes('B&W'))return 4*q;
-  if(s.includes('Colour'))return 8*q;
+  // For print jobs use actual page/image count detected from the uploaded file
+  const pages = (printPageCount > 0) ? printPageCount : q;
+  if(s.includes('B&W'))return 4*pages;
+  if(s.includes('Colour'))return 8*pages;
   return 0;
 }
 async function handleOrder(e){
   e.preventDefault();
   if(!user){openModal();return;}
   const svc=document.getElementById('fs').value;
-  const qty=Math.max(1,parseInt(document.getElementById('fq').value)||1);
+  const rawQty=Math.max(1,parseInt(document.getElementById('fq').value)||1);
+  const qty = svc.includes('Print') && printPageCount > 0 ? printPageCount : rawQty;
   const rm=document.getElementById('fr').value.trim();
   const wg=document.getElementById('fw').value.trim();
   if(!svc){toast('Please select a service');return;}
