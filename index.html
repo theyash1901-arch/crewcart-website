@@ -4,14 +4,7 @@
 <meta charset="UTF-8"/>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>
-window.addEventListener("load", function() {
-  if(typeof pdfjsLib !== "undefined") {
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-  }
-});
-</script>
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>CrewCart – Campus Delivery</title>
 <meta name="description" content="CrewCart delivers fresh milk and prints to your hostel room at Chandigarh University. Order today, delivered tomorrow."/>
@@ -930,13 +923,28 @@ document.getElementById('fs').addEventListener('change',function(){
 });
 let printPageCount = 0;
 
+async function waitForPdfJs(maxMs){
+  const start = Date.now();
+  while(typeof pdfjsLib === 'undefined' || !pdfjsLib.getDocument){
+    if(Date.now()-start > maxMs) return false;
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return true;
+}
+
 async function countPdfPages(file){
-  return new Promise(resolve => {
+  return new Promise(async resolve => {
+    const ready = await waitForPdfJs(5000);
+    if(!ready){ resolve(null); return; }
+    // Always set workerSrc here to be safe
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     const reader = new FileReader();
     reader.onload = async function(e){
       try {
         const typedArray = new Uint8Array(e.target.result);
-        const pdf = await pdfjsLib.getDocument({data: typedArray}).promise;
+        const loadingTask = pdfjsLib.getDocument({data: typedArray});
+        const pdf = await loadingTask.promise;
         resolve(pdf.numPages);
       } catch(err) {
         console.warn('PDF page count error:', err);
@@ -1101,11 +1109,11 @@ function setBtnLoading(on){
   btn.textContent=on?'⏳ Processing...':'⚡ Confirm Order & Pay';
 }
 function calcAmt(s,q){
-  if(s.includes('Milk'))return 39*q;
-  // For print jobs use actual page/image count detected from the uploaded file
-  const pages = (printPageCount > 0) ? printPageCount : q;
-  if(s.includes('B&W'))return 4*pages;
-  if(s.includes('Colour'))return 8*pages;
+  if(s.includes('Milk')) return 39*q;
+  // Print jobs: ALWAYS use printPageCount (set from file upload)
+  // Never use q for print — it comes from the hidden qty field which defaults to 1
+  if(s.includes('B&W'))     return 4 * printPageCount;
+  if(s.includes('Colour'))  return 8 * printPageCount;
   return 0;
 }
 async function handleOrder(e){
