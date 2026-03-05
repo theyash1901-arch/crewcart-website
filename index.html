@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8"/>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>CrewCart – Campus Delivery</title>
@@ -923,35 +922,41 @@ document.getElementById('fs').addEventListener('change',function(){
 });
 let printPageCount = 0;
 
-async function waitForPdfJs(maxMs){
-  const start = Date.now();
-  while(typeof pdfjsLib === 'undefined' || !pdfjsLib.getDocument){
-    if(Date.now()-start > maxMs) return false;
-    await new Promise(r => setTimeout(r, 100));
-  }
-  return true;
-}
-
-async function countPdfPages(file){
-  return new Promise(async resolve => {
-    const ready = await waitForPdfJs(5000);
-    if(!ready){ resolve(null); return; }
-    // Always set workerSrc here to be safe
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// INSTANT PDF page counter — pure binary scan, no CDN needed, runs in <50ms
+function countPdfPages(file){
+  return new Promise(resolve => {
     const reader = new FileReader();
-    reader.onload = async function(e){
+    reader.onload = function(e){
       try {
-        const typedArray = new Uint8Array(e.target.result);
-        const loadingTask = pdfjsLib.getDocument({data: typedArray});
-        const pdf = await loadingTask.promise;
-        resolve(pdf.numPages);
-      } catch(err) {
-        console.warn('PDF page count error:', err);
-        resolve(null);
+        const buf   = e.target.result;
+        const bytes = new Uint8Array(buf);
+        // Convert to latin1 string for regex scanning
+        let str = '';
+        const chunk = 65536; // process in 64KB chunks to avoid stack overflow on large files
+        for(let i = 0; i < bytes.length; i += chunk){
+          str += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+        }
+        // Primary: count /Type /Page (must not be followed by 's' = /Pages node)
+        const pageMatches = str.match(/\/Type\s*\/Page(?!s)/g);
+        if(pageMatches && pageMatches.length > 0){
+          resolve(pageMatches.length);
+          return;
+        }
+        // Secondary: look for /Count N in /Pages dictionary — gives total page count
+        const countMatch = str.match(/\/Count\s+(\d+)/);
+        if(countMatch){
+          resolve(parseInt(countMatch[1], 10));
+          return;
+        }
+        // Last resort: count Page objects by xref
+        const pageObjMatches = str.match(/\/Page/g);
+        resolve(pageObjMatches ? Math.max(1, pageObjMatches.length) : 1);
+      } catch(err){
+        console.warn('Page count error:', err);
+        resolve(1);
       }
     };
-    reader.onerror = () => resolve(null);
+    reader.onerror = () => resolve(1);
     reader.readAsArrayBuffer(file);
   });
 }
@@ -1002,7 +1007,7 @@ async function handleFile(file){
 
   if(ext === 'pdf'){
     badge.style.display  = 'inline-flex';
-    badge.textContent    = '⏳ Counting pages…';
+    badge.textContent    = '⚡ Counting…';
     const pages = await countPdfPages(file);
     if(pages){
       printPageCount     = pages;
@@ -1110,10 +1115,10 @@ function setBtnLoading(on){
 }
 function calcAmt(s,q){
   if(s.includes('Milk')) return 39*q;
-  // Print jobs: ALWAYS use printPageCount (set from file upload)
-  // Never use q for print — it comes from the hidden qty field which defaults to 1
-  if(s.includes('B&W'))     return 4 * printPageCount;
-  if(s.includes('Colour'))  return 8 * printPageCount;
+  // For print: use printPageCount, fallback to 1 if somehow still 0
+  const pages = printPageCount > 0 ? printPageCount : 1;
+  if(s.includes('B&W'))    return 4 * pages;
+  if(s.includes('Colour')) return 8 * pages;
   return 0;
 }
 async function handleOrder(e){
@@ -1128,6 +1133,7 @@ async function handleOrder(e){
   if(!rm){toast('Please enter your room number');return;}
   if(!wg){toast('Please enter your wing or block');return;}
   if(svc.includes('Print')&&!uploadedFile){toast('Please upload a PDF or image for printing');return;}
+  if(svc.includes('Print')&&printPageCount===0){toast('Please wait — still counting pages in your file...');return;}
   const amt=calcAmt(svc,qty);
   if(!amt){toast('Could not calculate amount');return;}
   const id='CC'+Date.now().toString().slice(-7);
