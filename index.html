@@ -4,9 +4,24 @@
 <meta charset="UTF-8"/>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+window.addEventListener("load", function() {
+  if(typeof pdfjsLib !== "undefined") {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+});
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>CrewCart – Campus Delivery</title>
 <meta name="description" content="CrewCart delivers fresh milk and prints to your hostel room at Chandigarh University. Order today, delivered tomorrow."/>
+<meta name="theme-color" content="#FF5200"/>
+<meta property="og:title" content="CrewCart – Campus Delivery"/>
+<meta property="og:description" content="Fresh milk & print delivery to your hostel room. Order now, delivered tomorrow."/>
+<meta property="og:type" content="website"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
@@ -368,6 +383,7 @@ footer{background:var(--bg2);border-top:1px solid var(--line);padding:48px 0 28p
 </style>
 </head>
 <body>
+<noscript><div style="padding:20px;text-align:center;font-family:sans-serif;background:#FF5200;color:#fff;">⚠️ CrewCart requires JavaScript to run. Please enable JavaScript in your browser.</div></noscript>
 
 <!-- NAV -->
 <nav id="nav">
@@ -617,13 +633,13 @@ footer{background:var(--bg2);border-top:1px solid var(--line);padding:48px 0 28p
             </select>
           </div>
           <div class="form-row">
-            <div class="fg"><label>Qty / Pages</label><input type="number" id="fq" value="1" min="1" required/></div>
+            <div class="fg" id="qtyGroup"><label>Qty / Bags</label><input type="number" id="fq" value="1" min="1" required/></div>
             <div class="fg"><label>Room No.</label><input type="text" id="fr" placeholder="e.g. 204" required/></div>
           </div>
           <div class="fg"><label>Wing / Block</label><input type="text" id="fw" placeholder="e.g. A-Wing, Block B" required/></div>
           <div class="file-upload-box" id="fileUploadBox">
             <div class="fg" style="margin-bottom:8px;"><label>Upload File (PDF or Image)</label></div>
-            <div class="file-drop" id="fileDrop" ondragover="handleDrag(event,true)" ondragleave="handleDrag(event,false)" ondrop="handleDrop(event)">
+            <div class="file-drop" id="fileDrop" style="touch-action:manipulation;" ondragover="handleDrag(event,true)" ondragleave="handleDrag(event,false)" ondrop="handleDrop(event)">
               <input type="file" id="fileInput" accept=".pdf,image/*" onchange="handleFile(this.files[0])"/>
               <div class="fd-ico">📎</div>
               <div class="fd-title">Drop your file here or click to browse</div>
@@ -908,8 +924,9 @@ document.getElementById('authOverlay').addEventListener('click',function(e){if(e
 document.getElementById('fs').addEventListener('change',function(){
   const isPrint=this.value.includes('Print');
   document.getElementById('fileUploadBox').style.display=isPrint?'block':'none';
+  document.getElementById('qtyGroup').style.display=isPrint?'none':'block';
   if(!isPrint){ removeFile(); }
-  else if(uploadedFile){ updatePrintPriceBox(this.value); }
+  else if(uploadedFile){ updatePrintPriceBox(); }
 });
 let printPageCount = 0;
 
@@ -918,82 +935,84 @@ async function countPdfPages(file){
     const reader = new FileReader();
     reader.onload = async function(e){
       try {
-        if(typeof pdfjsLib === 'undefined'){
-          // pdf.js not loaded yet — wait briefly and retry once
-          await new Promise(r => setTimeout(r, 800));
-        }
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         const typedArray = new Uint8Array(e.target.result);
         const pdf = await pdfjsLib.getDocument({data: typedArray}).promise;
         resolve(pdf.numPages);
       } catch(err) {
-        console.warn('PDF page count failed:', err);
+        console.warn('PDF page count error:', err);
         resolve(null);
       }
     };
+    reader.onerror = () => resolve(null);
     reader.readAsArrayBuffer(file);
   });
 }
 
-function updatePrintPriceBox(svc){
+function updatePrintPriceBox(){
+  const svc   = document.getElementById('fs').value;
   const box   = document.getElementById('printPriceBox');
-  const badge = document.getElementById('fpPagesBadge');
-  if(!uploadedFile || !svc || !svc.includes('Print')){ box.style.display='none'; return; }
-  const rate  = svc.includes('B&W') ? 4 : 8;
-  const label = svc.includes('B&W') ? 'B&W Print' : 'Colour Print';
+  if(!uploadedFile || !svc.includes('Print') || printPageCount === 0){
+    box.style.display='none'; return;
+  }
+  const isBW  = svc.includes('B&W');
+  const rate  = isBW ? 4 : 8;
+  const label = isBW ? 'B&W Print' : 'Colour Print';
   const ext   = uploadedFile.name.split('.').pop().toLowerCase();
-  const pages = ext === 'pdf' ? printPageCount : 1;
+  const pages = printPageCount;
   const total = pages * rate;
-  document.getElementById('ppbDesc').textContent  = ext==='pdf' ? 'PDF pages detected' : 'Image file (1 print)';
-  document.getElementById('ppbPages').textContent = pages + (ext==='pdf' ? ' page'+(pages!==1?'s':'') : '');
-  document.getElementById('ppbRateLbl').textContent = label + ' rate';
-  document.getElementById('ppbRate').textContent  = '₹'+rate+' per page';
-  document.getElementById('ppbTotal').textContent = '₹'+total;
+  document.getElementById('ppbDesc').textContent    = ext==='pdf' ? 'PDF pages counted' : 'Image (1 print)';
+  document.getElementById('ppbPages').textContent   = pages + (ext==='pdf' ? ' page'+(pages!==1?'s':'') : '');
+  document.getElementById('ppbRateLbl').textContent = label+' rate';
+  document.getElementById('ppbRate').textContent    = '₹'+rate+' per page';
+  document.getElementById('ppbTotal').textContent   = '₹'+total;
   box.style.display = 'flex';
-  if(badge) { badge.style.display='none'; }
 }
 
 async function handleFile(file){
   if(!file) return;
-  const ext=file.name.split('.').pop().toLowerCase();
-  if(!['pdf','jpg','jpeg','png','webp'].includes(ext)){toast('Only PDF, JPG, PNG files allowed');return;}
-  if(file.size>20*1024*1024){toast('File too large — max 20MB');return;}
-  uploadedFile=file; printPageCount=0;
-  document.getElementById('fpIco').textContent=ext==='pdf'?'📄':'🖼️';
-  document.getElementById('fpName').textContent=file.name;
-  const sizeTxt = file.size<1024*1024
-    ?(file.size/1024).toFixed(1)+' KB'
-    :(file.size/1024/1024).toFixed(2)+' MB';
-  document.getElementById('fpSize').textContent=sizeTxt;
-  document.getElementById('filePreview').style.display='flex';
-  document.getElementById('fileDrop').style.borderColor='var(--teal)';
-  document.getElementById('fileDrop').style.background='rgba(0,201,167,0.06)';
-
-  // If PDF — count pages
-  if(ext === 'pdf'){
-    const badge = document.getElementById('fpPagesBadge');
-    badge.style.display='inline-flex'; badge.textContent='⏳ Counting pages…';
-    document.getElementById('printPriceBox').style.display='none';
-    const pages = await countPdfPages(file);
-    if(pages !== null){
-      printPageCount = pages;
-      badge.textContent = pages + ' page' + (pages!==1?'s':'');
-      toast('PDF detected: ' + pages + ' page'+(pages!==1?'s':''));
-    } else {
-      printPageCount = 1;
-      badge.textContent = 'Could not count pages';
-      toast('Could not count PDF pages — defaulting to 1');
-    }
-    updatePrintPriceBox(document.getElementById('fs').value);
-  } else {
-    // Image — 1 print
-    printPageCount = 1;
-    const badge = document.getElementById('fpPagesBadge');
-    badge.style.display='inline-flex'; badge.textContent='1 image';
-    updatePrintPriceBox(document.getElementById('fs').value);
-    toast('Image attached — 1 print');
+  const ext = file.name.split('.').pop().toLowerCase();
+  if(!['pdf','jpg','jpeg','png','webp'].includes(ext)){
+    toast('Only PDF, JPG, PNG files allowed'); return;
   }
+  if(file.size > 20*1024*1024){ toast('File too large — max 20MB'); return; }
+
+  uploadedFile   = file;
+  printPageCount = 0;
+
+  // Update preview card
+  document.getElementById('fpIco').textContent  = ext==='pdf' ? '📄' : '🖼️';
+  document.getElementById('fpName').textContent = file.name;
+  document.getElementById('fpSize').textContent = file.size < 1024*1024
+    ? (file.size/1024).toFixed(1)+' KB'
+    : (file.size/1024/1024).toFixed(2)+' MB';
+  document.getElementById('filePreview').style.display = 'flex';
+  document.getElementById('fileDrop').style.borderColor = 'var(--teal)';
+  document.getElementById('fileDrop').style.background  = 'rgba(0,201,167,0.06)';
+  document.getElementById('printPriceBox').style.display = 'none';
+
+  const badge = document.getElementById('fpPagesBadge');
+
+  if(ext === 'pdf'){
+    badge.style.display  = 'inline-flex';
+    badge.textContent    = '⏳ Counting pages…';
+    const pages = await countPdfPages(file);
+    if(pages){
+      printPageCount     = pages;
+      badge.textContent  = pages + ' page'+(pages!==1?'s':'');
+      toast('📄 '+ pages +' page'+(pages!==1?'s':'')+' detected');
+    } else {
+      printPageCount     = 1;
+      badge.textContent  = '1 page (fallback)';
+      toast('Could not count pages — treating as 1 page');
+    }
+  } else {
+    printPageCount       = 1;
+    badge.style.display  = 'inline-flex';
+    badge.textContent    = '1 image';
+    toast('🖼️ Image attached — counts as 1 print');
+  }
+
+  updatePrintPriceBox();
 }
 function removeFile(){
   uploadedFile=null; printPageCount=0;
@@ -1001,7 +1020,7 @@ function removeFile(){
   const fp=document.getElementById('filePreview'); if(fp)fp.style.display='none';
   const fd=document.getElementById('fileDrop'); if(fd){fd.style.borderColor='';fd.style.background='';}
   const pb=document.getElementById('printPriceBox'); if(pb)pb.style.display='none';
-  const badge=document.getElementById('fpPagesBadge'); if(badge)badge.style.display='none';
+  const badge=document.getElementById('fpPagesBadge'); if(badge){badge.style.display='none';badge.textContent='';}
 }
 function handleDrag(e,on){e.preventDefault();document.getElementById('fileDrop').classList.toggle('drag',on);}
 function handleDrop(e){e.preventDefault();document.getElementById('fileDrop').classList.remove('drag');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);}
@@ -1079,7 +1098,7 @@ function setBtnLoading(on){
   const btn=document.querySelector('.sub-btn');
   if(!btn) return;
   btn.disabled=on;
-  btn.textContent=on?'Processing...':'Confirm Order — Pay via Razorpay';
+  btn.textContent=on?'⏳ Processing...':'⚡ Confirm Order & Pay';
 }
 function calcAmt(s,q){
   if(s.includes('Milk'))return 39*q;
@@ -1136,7 +1155,7 @@ async function handleOrder(e){
 function setH(h){hostel=h;document.getElementById('bh').classList.toggle('on',h==='Boys');document.getElementById('gh').classList.toggle('on',h==='Girls');}
 
 /* ══ DELIVERY PAGE ══ */
-function showDp(o){
+function showDp(o){ document.title = 'Order Confirmed! — CrewCart';
   const dp=document.getElementById('dpPage');
   dp.style.display='block';dp.scrollTop=0;document.body.style.overflow='hidden';
   const now=new Date(o.timestamp),del=new Date(o.deliveryDate);
@@ -1152,7 +1171,7 @@ function showDp(o){
   document.getElementById('tl3').textContent=del.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})+' 7-9 AM';
   launchConfetti();
 }
-function hideDp(){document.getElementById('dpPage').style.display='none';document.body.style.overflow='';}
+function hideDp(){document.getElementById('dpPage').style.display='none';document.body.style.overflow='';document.title='CrewCart – Campus Delivery';}
 function launchConfetti(){
   const w=document.getElementById('confetti');w.innerHTML='';
   const cols=['#FF5200','#00C9A7','#FFD12A','#7C3AED','#FF7043','#00E6C0','#fff'];
