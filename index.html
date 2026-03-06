@@ -428,7 +428,7 @@ footer{background:var(--bg2);border-top:1px solid var(--line);padding:48px 0 28p
         </div>
         <div class="hero-trust">
           <span class="trust-chip">📅 Next-day delivery</span>
-          <span class="trust-chip">🏠 500+ orders</span>
+          <span class="trust-chip">🎓 CU Students Only</span>
           <span class="trust-chip">💳 Razorpay secured</span>
           <span class="trust-chip">🎁 Free delivery</span>
         </div>
@@ -511,9 +511,9 @@ footer{background:var(--bg2);border-top:1px solid var(--line);padding:48px 0 28p
       </div>
     </div>
     <div class="stats-row">
-      <div class="stat-box rv"><div class="stat-num">500+</div><div class="stat-lbl">Orders Delivered</div></div>
       <div class="stat-box rv"><div class="stat-num">Next AM</div><div class="stat-lbl">Delivery Window</div></div>
-      <div class="stat-box rv"><div class="stat-num">4.9 ⭐</div><div class="stat-lbl">Avg Review Score</div></div>
+      <div class="stat-box rv"><div class="stat-num">₹4</div><div class="stat-lbl">B&amp;W Per Page</div></div>
+      <div class="stat-box rv"><div class="stat-num">₹8</div><div class="stat-lbl">Colour Per Page</div></div>
       <div class="stat-box rv"><div class="stat-num">24/7</div><div class="stat-lbl">Order Anytime</div></div>
     </div>
   </div>
@@ -871,7 +871,7 @@ function doLogin(){
   const users=gu();
   if(!users[ph]){ toast('No account found — please Sign Up first'); return; }
   user=users[ph]; localStorage.setItem('cc_s',JSON.stringify(user));
-  onLogin(); closeModal(); toast('Welcome back, '+user.name.split(' ')[0]+'!');
+  onLogin(); closeModal(); toast('✅ Logged in successfully!');
 }
 function doSignup(){
   const nm=document.getElementById('sname').value.trim();
@@ -884,7 +884,7 @@ function doSignup(){
   if(users[ph]){ toast('Account exists — please Login'); switchTab('login'); return; }
   users[ph]={name:nm,phone:ph,room:rm}; su(users);
   user=users[ph]; localStorage.setItem('cc_s',JSON.stringify(user));
-  onLogin(); closeModal(); toast('Welcome to CrewCart, '+nm+'!');
+  onLogin(); closeModal(); toast('✅ Account created! Welcome to CrewCart!');
 }
 function onLogin(){
   const p=document.getElementById('npill'); p.style.display='flex';
@@ -926,8 +926,13 @@ document.getElementById('fs').addEventListener('change',function(){
   const isPrint=this.value.includes('Print');
   document.getElementById('fileUploadBox').style.display=isPrint?'block':'none';
   document.getElementById('qtyGroup').style.display=isPrint?'none':'block';
-  if(!isPrint){ removeFile(); }
-  else if(uploadedFile){ updatePrintPriceBox(); }
+  document.getElementById('pageCountGroup').style.display=isPrint?'block':'none';
+  if(!isPrint){
+    removeFile();
+    document.getElementById('printPriceBox').style.display='none';
+  } else {
+    updatePrintPriceBox();
+  }
 });
 let printPageCount = 0;
 
