@@ -928,39 +928,24 @@ function countPdfPages(file){
     const reader = new FileReader();
     reader.onload = function(e){
       try {
-        const buf   = e.target.result;
-        const bytes = new Uint8Array(buf);
-        // Convert to latin1 string for regex scanning
-        let str = '';
-        const chunk = 65536; // process in 64KB chunks to avoid stack overflow on large files
-        for(let i = 0; i < bytes.length; i += chunk){
-          str += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-        }
-        // Primary: count /Type /Page (must not be followed by 's' = /Pages node)
-        const pageMatches = str.match(/\/Type\s*\/Page(?!s)/g);
-        if(pageMatches && pageMatches.length > 0){
-          resolve(pageMatches.length);
-          return;
-        }
-        // Secondary: look for /Count N in /Pages dictionary — gives total page count
-        const countMatch = str.match(/\/Count\s+(\d+)/);
-        if(countMatch){
-          resolve(parseInt(countMatch[1], 10));
-          return;
-        }
-        // Last resort: count Page objects by xref
-        const pageObjMatches = str.match(/\/Page/g);
-        resolve(pageObjMatches ? Math.max(1, pageObjMatches.length) : 1);
-      } catch(err){
-        console.warn('Page count error:', err);
-        resolve(1);
-      }
+        const bytes = new Uint8Array(e.target.result);
+        // Ultra-fast: TextDecoder is native browser API, single-pass decode
+        const str = new TextDecoder('latin1').decode(bytes);
+        // Primary: /Type /Page (not /Pages)
+        const m1 = str.match(/\/Type\s*\/Page(?!s)/g);
+        if(m1 && m1.length > 0){ resolve(m1.length); return; }
+        // Secondary: /Count N in Pages dict
+        const m2 = str.match(/\/Count\s+(\d+)/);
+        if(m2){ resolve(parseInt(m2[1], 10)); return; }
+        // Fallback
+        const m3 = str.match(/\/Page\b/g);
+        resolve(m3 ? Math.max(1, m3.length) : 1);
+      } catch(err){ resolve(1); }
     };
     reader.onerror = () => resolve(1);
     reader.readAsArrayBuffer(file);
   });
 }
-
 function updatePrintPriceBox(){
   const svc   = document.getElementById('fs').value;
   const box   = document.getElementById('printPriceBox');
@@ -1006,22 +991,16 @@ async function handleFile(file){
   const badge = document.getElementById('fpPagesBadge');
 
   if(ext === 'pdf'){
-    badge.style.display  = 'inline-flex';
-    badge.textContent    = '⚡ Counting…';
+    badge.style.display = 'inline-flex';
+    badge.textContent   = '⚡ Reading…';
     const pages = await countPdfPages(file);
-    if(pages){
-      printPageCount     = pages;
-      badge.textContent  = pages + ' page'+(pages!==1?'s':'');
-      toast('📄 '+ pages +' page'+(pages!==1?'s':'')+' detected');
-    } else {
-      printPageCount     = 1;
-      badge.textContent  = '1 page (fallback)';
-      toast('Could not count pages — treating as 1 page');
-    }
+    printPageCount      = (pages && pages > 0) ? pages : 1;
+    badge.textContent   = printPageCount + ' page' + (printPageCount !== 1 ? 's' : '');
+    toast('📄 ' + printPageCount + ' page' + (printPageCount !== 1 ? 's' : '') + ' detected');
   } else {
-    printPageCount       = 1;
-    badge.style.display  = 'inline-flex';
-    badge.textContent    = '1 image';
+    printPageCount      = 1;
+    badge.style.display = 'inline-flex';
+    badge.textContent   = '1 image';
     toast('🖼️ Image attached — counts as 1 print');
   }
 
@@ -1133,7 +1112,6 @@ async function handleOrder(e){
   if(!rm){toast('Please enter your room number');return;}
   if(!wg){toast('Please enter your wing or block');return;}
   if(svc.includes('Print')&&!uploadedFile){toast('Please upload a PDF or image for printing');return;}
-  if(svc.includes('Print')&&printPageCount===0){toast('Please wait — still counting pages in your file...');return;}
   const amt=calcAmt(svc,qty);
   if(!amt){toast('Could not calculate amount');return;}
   const id='CC'+Date.now().toString().slice(-7);
