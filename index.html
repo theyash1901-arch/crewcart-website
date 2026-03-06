@@ -645,10 +645,19 @@ footer{background:var(--bg2);border-top:1px solid var(--line);padding:48px 0 28p
               </div>
               <button class="fp-remove" onclick="removeFile()" title="Remove file">✕</button>
             </div>
-            <div id="printPriceBox">
-              <div class="ppb-row"><span id="ppbDesc">Pages detected</span><span id="ppbPages">—</span></div>
-              <div class="ppb-row"><span id="ppbRateLbl">Rate per page</span><span id="ppbRate">—</span></div>
-              <div class="ppb-total"><span>Total to Pay</span><span id="ppbTotal">₹0</span></div>
+            <div id="printPriceBox" style="margin-top:10px;">
+              <div class="ppb-row"><span id="ppbDesc">Pages</span><span id="ppbPages">—</span></div>
+              <div class="ppb-row"><span id="ppbRateLbl">Rate</span><span id="ppbRate">—</span></div>
+              <div class="ppb-total"><span>You Pay</span><span id="ppbTotal" style="font-size:24px;color:var(--teal);">₹0</span></div>
+            </div>
+            <div id="pageCountGroup" style="display:none;margin-top:14px;margin-bottom:4px;">
+              <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.7px;text-transform:uppercase;margin-bottom:10px;">How many pages? <span style="color:var(--teal);font-weight:700;text-transform:none;letter-spacing:0;">(check your PDF)</span></div>
+              <div style="display:flex;align-items:center;gap:0;background:var(--bg3);border:1.5px solid var(--teal);border-radius:14px;overflow:hidden;width:100%;">
+                <button type="button" onclick="stepPage(-1)" style="background:none;border:none;color:var(--teal);font-size:26px;font-weight:900;padding:10px 22px;cursor:pointer;flex-shrink:0;transition:background .15s;" onmousedown="this.style.background='rgba(0,201,167,0.15)'" onmouseup="this.style.background='none'">−</button>
+                <input type="number" id="fPageCount" min="1" max="999" value="1" oninput="onPageCountInput()" style="flex:1;background:none;border:none;font-size:28px;font-weight:900;text-align:center;color:var(--teal);outline:none;width:100%;padding:10px 0;font-family:Plus Jakarta Sans,sans-serif;"/>
+                <button type="button" onclick="stepPage(1)" style="background:none;border:none;color:var(--teal);font-size:26px;font-weight:900;padding:10px 22px;cursor:pointer;flex-shrink:0;transition:background .15s;" onmousedown="this.style.background='rgba(0,201,167,0.15)'" onmouseup="this.style.background='none'">+</button>
+              </div>
+              <div style="font-size:12px;color:var(--muted2);margin-top:7px;text-align:center;">Tap <b style="color:var(--teal)">+</b> or <b style="color:var(--teal)">−</b>, or type the number directly</div>
             </div>
             <div class="file-notice">📋 Your file will be collected by our team and printed as per your specifications. We do not store files beyond delivery.</div>
           </div>
@@ -923,89 +932,83 @@ document.getElementById('fs').addEventListener('change',function(){
 let printPageCount = 0;
 
 // INSTANT PDF page counter — pure binary scan, no CDN needed, runs in <50ms
-function countPdfPages(file){
-  return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = function(e){
-      try {
-        const bytes = new Uint8Array(e.target.result);
-        // Ultra-fast: TextDecoder is native browser API, single-pass decode
-        const str = new TextDecoder('latin1').decode(bytes);
-        // Primary: /Type /Page (not /Pages)
-        const m1 = str.match(/\/Type\s*\/Page(?!s)/g);
-        if(m1 && m1.length > 0){ resolve(m1.length); return; }
-        // Secondary: /Count N in Pages dict
-        const m2 = str.match(/\/Count\s+(\d+)/);
-        if(m2){ resolve(parseInt(m2[1], 10)); return; }
-        // Fallback
-        const m3 = str.match(/\/Page\b/g);
-        resolve(m3 ? Math.max(1, m3.length) : 1);
-      } catch(err){ resolve(1); }
-    };
-    reader.onerror = () => resolve(1);
-    reader.readAsArrayBuffer(file);
-  });
-}
-function updatePrintPriceBox(){
-  const svc   = document.getElementById('fs').value;
-  const box   = document.getElementById('printPriceBox');
-  if(!uploadedFile || !svc.includes('Print') || printPageCount === 0){
-    box.style.display='none'; return;
-  }
-  const isBW  = svc.includes('B&W');
-  const rate  = isBW ? 4 : 8;
-  const label = isBW ? 'B&W Print' : 'Colour Print';
-  const ext   = uploadedFile.name.split('.').pop().toLowerCase();
-  const pages = printPageCount;
-  const total = pages * rate;
-  document.getElementById('ppbDesc').textContent    = ext==='pdf' ? 'PDF pages counted' : 'Image (1 print)';
-  document.getElementById('ppbPages').textContent   = pages + (ext==='pdf' ? ' page'+(pages!==1?'s':'') : '');
-  document.getElementById('ppbRateLbl').textContent = label+' rate';
-  document.getElementById('ppbRate').textContent    = '₹'+rate+' per page';
-  document.getElementById('ppbTotal').textContent   = '₹'+total;
-  box.style.display = 'flex';
-}
 
-async function handleFile(file){
-  if(!file) return;
-  const ext = file.name.split('.').pop().toLowerCase();
-  if(!['pdf','jpg','jpeg','png','webp'].includes(ext)){
-    toast('Only PDF, JPG, PNG files allowed'); return;
-  }
-  if(file.size > 20*1024*1024){ toast('File too large — max 20MB'); return; }
-
-  uploadedFile   = file;
-  printPageCount = 0;
-
-  // Update preview card
-  document.getElementById('fpIco').textContent  = ext==='pdf' ? '📄' : '🖼️';
-  document.getElementById('fpName').textContent = file.name;
-  document.getElementById('fpSize').textContent = file.size < 1024*1024
-    ? (file.size/1024).toFixed(1)+' KB'
-    : (file.size/1024/1024).toFixed(2)+' MB';
-  document.getElementById('filePreview').style.display = 'flex';
-  document.getElementById('fileDrop').style.borderColor = 'var(--teal)';
-  document.getElementById('fileDrop').style.background  = 'rgba(0,201,167,0.06)';
-  document.getElementById('printPriceBox').style.display = 'none';
-
-  const badge = document.getElementById('fpPagesBadge');
-
-  if(ext === 'pdf'){
-    badge.style.display = 'inline-flex';
-    badge.textContent   = '⚡ Reading…';
-    const pages = await countPdfPages(file);
-    printPageCount      = (pages && pages > 0) ? pages : 1;
-    badge.textContent   = printPageCount + ' page' + (printPageCount !== 1 ? 's' : '');
-    toast('📄 ' + printPageCount + ' page' + (printPageCount !== 1 ? 's' : '') + ' detected');
-  } else {
-    printPageCount      = 1;
-    badge.style.display = 'inline-flex';
-    badge.textContent   = '1 image';
-    toast('🖼️ Image attached — counts as 1 print');
+  function stepPage(d){
+    const inp = document.getElementById('fPageCount');
+    const cur = parseInt(inp.value) || 1;
+    inp.value = Math.max(1, cur + d);
+    onPageCountInput();
   }
 
-  updatePrintPriceBox();
-}
+  function onPageCountInput(){
+    const v = parseInt(document.getElementById('fPageCount').value) || 1;
+    if(v < 1) document.getElementById('fPageCount').value = 1;
+    printPageCount = Math.max(1, v);
+    updatePrintPriceBox();
+  }
+
+  function updatePrintPriceBox(){
+    const svc = document.getElementById('fs').value;
+    const box = document.getElementById('printPriceBox');
+    if(!svc.includes('Print')){ box.style.display='none'; return; }
+    // Read page count from the manual input
+    const inputVal = parseInt(document.getElementById('fPageCount').value) || 1;
+    printPageCount = Math.max(1, inputVal);
+    const sl   = svc.toLowerCase();
+    const isBW = sl.includes('b&w') || sl.includes('black') || sl.includes('bw');
+    const rate  = isBW ? 4 : 8;
+    const label = isBW ? 'B&W' : 'Colour';
+    const total = printPageCount * rate;
+    document.getElementById('ppbDesc').textContent  = 'Pages to print';
+    document.getElementById('ppbPages').textContent = printPageCount + ' page' + (printPageCount !== 1 ? 's' : '');
+    document.getElementById('ppbRateLbl').textContent = label + ' rate';
+    document.getElementById('ppbRate').textContent  = '₹' + rate + ' × ' + printPageCount;
+    document.getElementById('ppbTotal').textContent = '₹' + total;
+    box.style.display = 'flex';
+  }
+
+
+function handleFile(file){
+    if(!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if(!['pdf','jpg','jpeg','png','webp'].includes(ext)){
+      toast('Only PDF, JPG, PNG files allowed'); return;
+    }
+    if(file.size > 20*1024*1024){ toast('File too large — max 20MB'); return; }
+
+    uploadedFile = file;
+
+    document.getElementById('fpIco').textContent  = ext==='pdf' ? '📄' : '🖼️';
+    document.getElementById('fpName').textContent = file.name;
+    document.getElementById('fpSize').textContent = file.size < 1024*1024
+      ? (file.size/1024).toFixed(1)+' KB'
+      : (file.size/1024/1024).toFixed(2)+' MB';
+    document.getElementById('filePreview').style.display = 'flex';
+    document.getElementById('fileDrop').style.borderColor = 'var(--teal)';
+    document.getElementById('fileDrop').style.background  = 'rgba(0,201,167,0.06)';
+
+    const badge = document.getElementById('fpPagesBadge');
+    badge.style.display = 'none';
+
+    if(ext !== 'pdf'){
+      // Images always = 1 page, lock the input
+      printPageCount = 1;
+      document.getElementById('fPageCount').value = 1;
+      document.getElementById('fPageCount').readOnly = true;
+      document.getElementById('fPageCount').style.opacity = '0.6';
+      toast('🖼️ Image attached — counts as 1 print');
+    } else {
+      // PDF: let user enter page count, default to 1, editable
+      document.getElementById('fPageCount').readOnly = false;
+      document.getElementById('fPageCount').style.opacity = '1';
+      document.getElementById('fPageCount').focus();
+      printPageCount = parseInt(document.getElementById('fPageCount').value) || 1;
+      toast('📄 File ready! Enter the number of pages below.');
+    }
+    updatePrintPriceBox();
+  }
+
+
 function removeFile(){
   uploadedFile=null; printPageCount=0;
   const fi=document.getElementById('fileInput'); if(fi)fi.value='';
@@ -1093,13 +1096,18 @@ function setBtnLoading(on){
   btn.textContent=on?'⏳ Processing...':'⚡ Confirm Order & Pay';
 }
 function calcAmt(s,q){
-  if(s.includes('Milk')) return 39*q;
-  // For print: use printPageCount, fallback to 1 if somehow still 0
-  const pages = printPageCount > 0 ? printPageCount : 1;
-  if(s.includes('B&W'))    return 4 * pages;
-  if(s.includes('Colour')) return 8 * pages;
-  return 0;
-}
+    if(s.includes('Milk')) return 39*q;
+    // For print: always read from the manual page count input for accuracy
+    const pages = Math.max(1, parseInt(document.getElementById('fPageCount').value) || printPageCount || 1);
+    printPageCount = pages; // sync global
+    const sl = s.toLowerCase();
+    if(sl.includes('b&w') || sl.includes('black') || sl.includes('bw')) return 4 * pages;
+    if(sl.includes('colour') || sl.includes('color'))                    return 8 * pages;
+    if(sl.includes('print'))                                             return 4 * pages;
+    return 0;
+  }
+
+
 async function handleOrder(e){
   e.preventDefault();
   if(!user){openModal();return;}
